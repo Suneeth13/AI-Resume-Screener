@@ -15,7 +15,7 @@ A Flask-based web application that intelligently parses resumes, extracts key in
 - **Framework**: Flask (Python)
 - **AI Integration**: Google Generative AI (Gemini 2.5-flash)
 - **PDF Processing**: PyMuPDF (fitz)
-- **Database**: SQLite (for storing results)
+- **Database**: SQLite (for storing analysis results)
 
 ### Frontend
 - **Template Engine**: Jinja2
@@ -74,8 +74,8 @@ Return only a JSON object with the following keys:
 ## API Endpoints
 
 - `GET /`: Main page with upload form
-- `POST /`: Process uploaded resumes and job description
-- `GET /results`: View stored analysis results (after database implementation)
+- `POST /`: Process uploaded resumes and job description, store results in database
+- `GET /results`: View all stored analysis results
 
 ## Dependencies
 
