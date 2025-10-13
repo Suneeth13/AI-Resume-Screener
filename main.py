@@ -1,10 +1,11 @@
-from flask import Flask, request, render_template
-import fitz  # PyMuPDF
+from flask import Flask, request, render_template # type: ignore
+import fitz  # type: ignore # PyMuPDF
 from analyse_pdf import analyse_resume_gemini
 import os
 import time
 import json
 import sqlite3
+import re
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'uploads'
@@ -56,8 +57,41 @@ def index():
 
                 resume_content = extract_text_from_resume(pdf_path)
                 result_str = analyse_resume_gemini(resume_content, job_description)
-                result = json.loads(result_str)
+                try:
+                    result = json.loads(result_str)
+                except json.JSONDecodeError as e:
+                    print(f"JSON decode error: {e}")
+                    print(f"Raw response: {result_str}")
+                    # Fallback to default values
+                    result = {
+                        'name': 'Error parsing name',
+                        'skills': [],
+                        'experience': 'Error parsing experience',
+                        'education': 'Error parsing education',
+                        'match_score': 0,
+                        'selection_status': 'Not Selected'
+                    }
                 result['resume_id'] = len(results) + 1
+
+                # Keyword overlap adjustment for stricter scoring
+                jd_keywords = set(re.findall(r'\b\w+\b', job_description.lower()))
+                resume_words = set(re.findall(r'\b\w+\b', resume_content.lower()))
+                overlap_count = len(jd_keywords.intersection(resume_words))
+                overlap_ratio = overlap_count / len(jd_keywords) if jd_keywords else 0
+                print(f"JD keywords: {jd_keywords}, Overlap count: {overlap_count}, Ratio: {overlap_ratio}, AI score: {result['match_score']}")
+                if overlap_ratio == 1.0:  # Full overlap
+                    result['match_score'] = max(result['match_score'], 90)  # Boost to at least 90
+                elif overlap_ratio >= 0.75:  # High overlap
+                    result['match_score'] = max(result['match_score'], 70)  # Boost to at least 70
+                elif overlap_ratio == 0:  # No overlap
+                    result['match_score'] = 0  # Set to 0
+                elif overlap_ratio < 0.1:  # Less than 10% overlap
+                    result['match_score'] = min(result['match_score'], 5)  # Cap at 5
+                elif overlap_ratio < 0.5:  # Less than 50% overlap
+                    result['match_score'] = int(result['match_score'] * 0.5)  # Reduce by half
+                print(f"Adjusted score: {result['match_score']}")
+                # Update selection status based on adjusted score
+                result['selection_status'] = "Selected" if result['match_score'] >= 50 else "Not Selected"
 
                 results.append(result)
 
