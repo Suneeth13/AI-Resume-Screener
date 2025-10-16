@@ -52,4 +52,13 @@ def analyse_resume_gemini(resume_content,job_description):
 
     response = model.generate_content(prompt)
 
-    return response.text
+    # Check if response is blocked or invalid
+    if response.candidates and response.candidates[0].finish_reason == 2:  # SAFETY
+        # Return a default JSON string for blocked responses
+        return '{"name": "Blocked by AI Safety", "skills": [], "experience": "Blocked", "education": "Blocked", "match_score": 0, "selection_status": "Not Selected"}'
+    
+    if response.parts:
+        return response.text
+    else:
+        # Fallback if no parts
+        return '{"name": "Error", "skills": [], "experience": "Error", "education": "Error", "match_score": 0, "selection_status": "Not Selected"}'
