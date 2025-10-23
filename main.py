@@ -23,21 +23,38 @@ def init_db():
         education TEXT,
         match_score INTEGER,
         selection_status TEXT,
+        justification TEXT,
         job_description TEXT,
+        resume_content TEXT,
         timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )''')
+    # Add missing columns if they don't exist (for backward compatibility)
+    try:
+        c.execute('ALTER TABLE results ADD COLUMN justification TEXT')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+    try:
+        c.execute('ALTER TABLE results ADD COLUMN resume_content TEXT')
+    except sqlite3.OperationalError:
+        pass  # Column already exists
     conn.commit()
     conn.close()
 
 init_db()
 
 
-def extract_text_from_resume(pdf_path):
-    doc = fitz.open(pdf_path)
-    text = ""
-    for page in doc:
-        text += page.get_text()
-    return text
+def extract_text_from_resume(file_path):
+    if file_path.endswith('.pdf'):
+        doc = fitz.open(file_path)
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+    elif file_path.endswith('.txt'):
+        with open(file_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    else:
+        raise ValueError("Unsupported file type")
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -48,14 +65,14 @@ def index():
 
         results = []
         for resume_file in resume_files:
-            if resume_file.filename and resume_file.filename.endswith(".pdf"):
+            if resume_file.filename and (resume_file.filename.endswith(".pdf") or resume_file.filename.endswith(".txt")):
                 # Use timestamp to avoid filename conflicts
                 timestamp = str(int(time.time() * 1000000))  # microsecond precision
                 filename = f"{timestamp}_{resume_file.filename}"
-                pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                resume_file.save(pdf_path)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                resume_file.save(file_path)
 
-                resume_content = extract_text_from_resume(pdf_path)
+                resume_content = extract_text_from_resume(file_path)
                 result_str = analyse_resume_gemini(resume_content, job_description)
                 try:
                     result = json.loads(result_str)
@@ -69,7 +86,8 @@ def index():
                         'experience': 'Error parsing experience',
                         'education': 'Error parsing education',
                         'match_score': 0,
-                        'selection_status': 'Not Selected'
+                        'selection_status': 'Not Selected',
+                        'justification': 'Error in analysis'
                     }
                 result['resume_id'] = len(results) + 1
 
@@ -99,9 +117,9 @@ def index():
         conn = sqlite3.connect('results.db')
         c = conn.cursor()
         for result in results:
-            c.execute('''INSERT INTO results (resume_id, name, skills, experience, education, match_score, selection_status, job_description)
-                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)''',
-                      (result['resume_id'], result['name'], json.dumps(result['skills']), result['experience'], result['education'], result['match_score'], result['selection_status'], job_description))
+            c.execute('''INSERT INTO results (resume_id, name, skills, experience, education, match_score, selection_status, justification, job_description, resume_content)
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+                      (result['resume_id'], result['name'], json.dumps(result['skills']), result['experience'], result['education'], result['match_score'], result['selection_status'], result.get('justification', ''), job_description, resume_content))
         conn.commit()
         conn.close()
 
@@ -129,8 +147,10 @@ def view_results():
             'education': row[5],
             'match_score': row[6],
             'selection_status': row[7],
-            'job_description': row[8],
-            'timestamp': row[9]
+            'justification': row[8],
+            'job_description': row[9],
+            'resume_content': row[10],
+            'timestamp': row[11]
         })
     return render_template('results.html', results=results_list)
 

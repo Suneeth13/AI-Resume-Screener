@@ -40,6 +40,7 @@ def analyse_resume_gemini(resume_content,job_description):
     - Total match_score: Sum of the above, out of 100. Be strict: If key job description terms are absent, keep score low (e.g., <10 for no overlap).
     - Example: For a job requiring "React.js Next.js" with no mention in resume, score should be 0-10.
     - Determine selection status: If match score is 50 or above, Selected; otherwise, Not Selected.
+    - Provide a justification: A brief explanation of why the candidate was selected or not, based on the match score and key factors.
 
     Return only a JSON object with the following keys:
     - name: string
@@ -48,6 +49,7 @@ def analyse_resume_gemini(resume_content,job_description):
     - education: string
     - match_score: number
     - selection_status: string ("Selected" or "Not Selected")
+    - justification: string
     """
 
     response = model.generate_content(prompt)
@@ -55,10 +57,10 @@ def analyse_resume_gemini(resume_content,job_description):
     # Check if response is blocked or invalid
     if response.candidates and response.candidates[0].finish_reason == 2:  # SAFETY
         # Return a default JSON string for blocked responses
-        return '{"name": "Blocked by AI Safety", "skills": [], "experience": "Blocked", "education": "Blocked", "match_score": 0, "selection_status": "Not Selected"}'
-    
+        return '{"name": "Blocked by AI Safety", "skills": [], "experience": "Blocked", "education": "Blocked", "match_score": 0, "selection_status": "Not Selected", "justification": "Blocked by AI Safety"}'
+
     if response.parts:
         return response.text
     else:
         # Fallback if no parts
-        return '{"name": "Error", "skills": [], "experience": "Error", "education": "Error", "match_score": 0, "selection_status": "Not Selected"}'
+        return '{"name": "Error", "skills": [], "experience": "Error", "education": "Error", "match_score": 0, "selection_status": "Not Selected", "justification": "Error in analysis"}'

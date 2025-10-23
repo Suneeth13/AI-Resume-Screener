@@ -73,8 +73,8 @@
           <h3 class="mb-4 text-center">Analyze Your Resumes with AI</h3>
           <form id="analyzeForm" method="post" enctype="multipart/form-data">
             <div class="mb-3">
-              <label class="form-label">Upload Resumes (PDF only, multiple allowed)</label>
-              <input class="form-control" type="file" name="resumes" accept=".pdf" multiple required>
+              <label class="form-label">Upload Resumes (PDF or TXT, multiple allowed)</label>
+              <input class="form-control" type="file" name="resumes" accept=".pdf,.txt" multiple required>
             </div>
             <div class="mb-3">
               <label class="form-label">Paste Job Description</label>
@@ -107,6 +107,7 @@
                 <th>Education</th>
                 <th>Match Score</th>
                 <th>Selection Status</th>
+                <th>Justification</th>
               </tr>
             </thead>
             <tbody>
@@ -119,6 +120,7 @@
                 <td>{{ result.education }}</td>
                 <td>{{ result.match_score }}/100</td>
                 <td>{{ result.selection_status }}</td>
+                <td>{{ result.justification }}</td>
               </tr>
               {% endfor %}
             </tbody>
